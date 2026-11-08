@@ -92,6 +92,8 @@ export function downloadIcs(e: CalendarEvent, timeZone?: string): void {
 }
 
 export const SHARE_PARAM = "event"
+/** Query param holding the day (`YYYY-MM-DD`) whose modal is open. */
+export const DAY_PARAM = "day"
 
 /** Deep link that re-opens the event modal. Defaults to the current page. */
 export function shareUrl(e: CalendarEvent, baseUrl?: string): string {

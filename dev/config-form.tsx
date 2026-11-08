@@ -1,39 +1,78 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import type { MultiDayListMode } from "@/lib/calendar-events/types"
+import { EXAMPLE_CALENDAR_ID, exampleFetcher } from "./example-source"
 
-/** "api" uses the API key when one is set (falling back to iCal); "ical" ignores it. */
-export type DevSource = "api" | "ical"
+/**
+ * "api" uses the API key when one is set (falling back to iCal); "ical" ignores it;
+ * "example" serves `example-events.json` and needs neither a calendar ID nor a key.
+ */
+export type DevSource = "api" | "ical" | "example"
 
 export interface DevConfig {
   calendarId: string
   apiKey: string
   source: DevSource
   timeZone: string
-  defaultView: "list" | "calendar"
+  defaultView: "list" | "month"
+  multiDayList: MultiDayListMode
+  dayModal: boolean
   baseUrl: string
 }
 
 const STORAGE_KEY = "calendar-events-dev-config"
 
+// Read from `.env` (see `.env.example`); empty when the file or a variable is absent.
+const ENV = {
+  CALENDAR_ID: import.meta.env.GOOGLE_CALENDAR_ID ?? "",
+  API_KEY: import.meta.env.PUBLIC_GOOGLE_CALENDAR_API_KEY ?? "",
+}
+
 const EMPTY_CONFIG: DevConfig = {
-  calendarId: "",
-  apiKey: "",
+  calendarId: ENV.CALENDAR_ID,
+  apiKey: ENV.API_KEY,
   source: "api",
   timeZone: "",
   defaultView: "list",
+  multiDayList: "each",
+  dayModal: false,
   baseUrl: "",
 }
 
 const SOURCE_OPTIONS: { id: DevSource; label: string }[] = [
   { id: "api", label: "API key" },
   { id: "ical", label: "iCal" },
+  { id: "example", label: "Example events" },
 ]
 
-/** The key to hand the registry component, or undefined when iCal is selected. */
-export function apiKeyFor(config: DevConfig): string | undefined {
-  if (config.source !== "api") return undefined
-  return config.apiKey || undefined
+/** True when the config has something to load: example events, or a calendar ID. */
+export function isConfigured(config: DevConfig): boolean {
+  return config.source === "example" || Boolean(config.calendarId)
+}
+
+interface SourceProps {
+  calendarId: string
+  apiKey?: string
+  fetcher?: typeof fetch
+  cacheKey?: null
+}
+
+/** The source props to hand the registry component or hook for the selected source. */
+export function sourceProps(config: DevConfig): SourceProps {
+  if (config.source === "example") {
+    // Relative dates, so skip the session cache; the fetcher stands in for Google's API.
+    return {
+      calendarId: EXAMPLE_CALENDAR_ID,
+      apiKey: "example",
+      fetcher: exampleFetcher(config.timeZone),
+      cacheKey: null,
+    }
+  }
+  return {
+    calendarId: config.calendarId,
+    apiKey: config.source === "api" ? config.apiKey || undefined : undefined,
+  }
 }
 
 export function loadDevConfig(): DevConfig {
@@ -41,7 +80,20 @@ export function loadDevConfig(): DevConfig {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return EMPTY_CONFIG
-    return { ...EMPTY_CONFIG, ...(JSON.parse(raw) as Partial<DevConfig>) }
+    const saved = JSON.parse(raw) as Partial<Omit<DevConfig, "defaultView">> & { defaultView?: string }
+    // Older saves used "calendar" for what is now the "month" view.
+    const defaultView = saved.defaultView === "calendar" ? "month" : saved.defaultView
+    return {
+      ...EMPTY_CONFIG,
+      ...saved,
+      // A saved blank must not hide the value from `.env`.
+      calendarId: saved.calendarId || EMPTY_CONFIG.calendarId,
+      apiKey: saved.apiKey || EMPTY_CONFIG.apiKey,
+      defaultView: defaultView === "list" || defaultView === "month" ? defaultView : "list",
+      multiDayList: saved.multiDayList === "start" ? "start" : "each",
+      dayModal: saved.dayModal === true,
+      source: saved.source === "ical" || saved.source === "example" ? saved.source : "api",
+    }
   } catch {
     return EMPTY_CONFIG
   }
@@ -100,6 +152,11 @@ function SourceToggle({
       {value === "api" && !hasApiKey && (
         <span className="text-xs text-foreground/60">No key set, so iCal will be used.</span>
       )}
+      {value === "example" && (
+        <span className="text-xs text-foreground/60">
+          Using dev/example-events.json; calendar ID and API key are ignored.
+        </span>
+      )}
     </div>
   )
 }
@@ -112,6 +169,8 @@ export function ConfigForm({
   onChange: (config: DevConfig) => void
 }) {
   const [draft, setDraft] = React.useState(config)
+
+  const usesExample = draft.source === "example"
 
   function set<K extends keyof DevConfig>(key: K, value: DevConfig[K]) {
     setDraft((d) => ({ ...d, [key]: value }))
@@ -135,8 +194,9 @@ export function ConfigForm({
       className="flex flex-col gap-4 rounded-lg border border-border bg-secondary/40 p-4"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Calendar ID *">
+        <Field label={usesExample ? "Calendar ID" : "Calendar ID *"}>
           <Input
+            disabled={usesExample}
             value={draft.calendarId}
             onChange={(e) => set("calendarId", e.target.value)}
             placeholder="xxxx@group.calendar.google.com"
@@ -144,6 +204,7 @@ export function ConfigForm({
         </Field>
         <Field label="API Key">
           <Input
+            disabled={usesExample}
             value={draft.apiKey}
             onChange={(e) => set("apiKey", e.target.value)}
             placeholder="optional, falls back to iCal"
@@ -170,7 +231,27 @@ export function ConfigForm({
             }
           >
             <option value="list">list</option>
-            <option value="calendar">calendar</option>
+            <option value="month">month</option>
+          </select>
+        </Field>
+        <Field label="Multi-day events in list">
+          <select
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            value={draft.multiDayList}
+            onChange={(e) => set("multiDayList", e.target.value as MultiDayListMode)}
+          >
+            <option value="each">each day</option>
+            <option value="start">start day only</option>
+          </select>
+        </Field>
+        <Field label="Day click (month view)">
+          <select
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            value={draft.dayModal ? "modal" : "none"}
+            onChange={(e) => set("dayModal", e.target.value === "modal")}
+          >
+            <option value="none">nothing</option>
+            <option value="modal">open day modal</option>
           </select>
         </Field>
         <Field label="Base URL (proxy)">

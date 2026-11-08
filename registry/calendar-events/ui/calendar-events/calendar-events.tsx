@@ -1,24 +1,30 @@
-import * as React from "react"
-import { List, CalendarDays } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useCalendarEvents, type UseCalendarEventsOptions } from "@/hooks/use-calendar-events"
-import { defaultFilters, filterEvents, rangeWindow, uniqueLocations, type FilterState } from "@/lib/calendar-events/filters"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { defaultFilters, dayWindow, filterEvents, isFiltered, monthRange, uniqueLocations, type FilterState } from "@/lib/calendar-events/filters"
 import { fetchGoogleEvent } from "@/lib/calendar-events/google-api"
-import { SHARE_PARAM, shareUrl as defaultShareUrl } from "@/lib/calendar-events/links"
-import { defaultTimeZone, startOfMonth } from "@/lib/calendar-events/time"
-import type { CalendarEvent } from "@/lib/calendar-events/types"
+import { DAY_PARAM, SHARE_PARAM, shareUrl as defaultShareUrl } from "@/lib/calendar-events/links"
+import { dayKey, defaultTimeZone, fetchWindow, formatDayRange, startOfDay, type WeekStart } from "@/lib/calendar-events/time"
+import type { CalendarEvent, MultiDayListMode } from "@/lib/calendar-events/types"
 import { CalendarView } from "./calendar-view"
+import { DayModal, type RenderDay } from "./day-modal"
 import { EventModal } from "./event-modal"
 import { FiltersBar } from "./filters-bar"
 import { LinksBar } from "./links-bar"
 import { ListView } from "./list-view"
+import { CalendarToolbar, type CalendarEventsView } from "./toolbar"
 
-export type CalendarEventsView = "list" | "calendar"
+export type { CalendarEventsView, RenderDay }
+
+/** Tailwind's `md` breakpoint: the month grid is the default from here up, the list below. */
+const DESKTOP_QUERY = "(min-width: 768px)"
 
 export interface CalendarEventsProps extends UseCalendarEventsOptions {
   /** Controlled / uncontrolled view. */
   view?: CalendarEventsView
+  /** Initial view. Default: the month grid at `md` and up, the list below. */
   defaultView?: CalendarEventsView
   onViewChange?: (view: CalendarEventsView) => void
   /** Controlled / uncontrolled filters. */
@@ -31,18 +37,37 @@ export interface CalendarEventsProps extends UseCalendarEventsOptions {
   syncUrl?: boolean
   showLinks?: boolean
   showFilters?: boolean
+  /** First day of the week in the month grid, 0 = Sunday. Default 0. */
+  weekStartsOn?: WeekStart
+  /**
+   * How the list shows multi-day events: `"each"` (default) repeats them under every day they
+   * cover; `"start"` shows one entry under the start day with its start and end. The month
+   * grid is unaffected.
+   */
+  multiDayList?: MultiDayListMode
+  /**
+   * Month view: open a modal listing the day's events when the day itself is clicked (not one
+   * of its events). Defaults to true when `renderDay` is passed, otherwise false. On small
+   * screens the modal replaces the tap-to-list behaviour.
+   */
+  dayModal?: boolean
+  /**
+   * Replace the day modal's default list of event cards. Receives the day, its events and
+   * `{ select, close }`. Passing it turns `dayModal` on unless `dayModal={false}`.
+   */
+  renderDay?: RenderDay
   /** Replace the default list card. Call `select()` to open the modal. */
-  renderEvent?: (event: CalendarEvent, select: () => void) => React.ReactNode
+  renderEvent?: (event: CalendarEvent, select: () => void) => ReactNode
   /** Replace the plain-text description in the modal, e.g. with a markdown renderer. */
-  renderDescription?: (event: CalendarEvent) => React.ReactNode
-  emptyState?: React.ReactNode
+  renderDescription?: (event: CalendarEvent) => ReactNode
+  emptyState?: ReactNode
   className?: string
 }
 
 export function CalendarEvents(props: CalendarEventsProps) {
   const {
     view: viewProp,
-    defaultView = "list",
+    defaultView,
     onViewChange,
     filters: filtersProp,
     defaultFilters: defaultFiltersProp,
@@ -51,6 +76,10 @@ export function CalendarEvents(props: CalendarEventsProps) {
     syncUrl = true,
     showLinks = true,
     showFilters = true,
+    weekStartsOn = 0,
+    multiDayList = "each",
+    dayModal,
+    renderDay,
     renderEvent,
     renderDescription,
     emptyState,
@@ -59,16 +88,18 @@ export function CalendarEvents(props: CalendarEventsProps) {
   } = props
   const timeZone = source.timeZone ?? defaultTimeZone()
   const { calendarId, apiKey, baseUrl, fetcher } = source
+  const isDesktop = useMediaQuery(DESKTOP_QUERY)
 
-  const [viewState, setViewState] = React.useState<CalendarEventsView>(defaultView)
-  const view = viewProp ?? viewState
+  // Until the user picks a view, the default follows the screen size.
+  const [viewState, setViewState] = useState<CalendarEventsView | null>(null)
+  const view = viewProp ?? viewState ?? defaultView ?? (isDesktop ? "month" : "list")
   const setView = (v: CalendarEventsView) => {
     setViewState(v)
     onViewChange?.(v)
   }
 
-  const baseFilters = React.useMemo<FilterState>(() => ({ ...defaultFilters, ...defaultFiltersProp }), [defaultFiltersProp])
-  const [filtersState, setFiltersState] = React.useState<FilterState>(baseFilters)
+  const baseFilters = useMemo<FilterState>(() => ({ ...defaultFilters, ...defaultFiltersProp }), [defaultFiltersProp])
+  const [filtersState, setFiltersState] = useState<FilterState>(baseFilters)
   const filters = filtersProp ?? filtersState
   const setFilters = (f: FilterState) => {
     setFiltersState(f)
@@ -76,45 +107,79 @@ export function CalendarEvents(props: CalendarEventsProps) {
   }
 
   const data = useCalendarEvents(source)
+  const [month, setMonth] = useState(() => new Date())
+  const [selected, setSelected] = useState<CalendarEvent | null>(null)
+  const [openDay, setOpenDay] = useState<Date | null>(null)
+  const dayModalEnabled = dayModal ?? renderDay !== undefined
+
   const changeFilters = (f: FilterState) => {
     setFilters(f)
-    // Quick selects like "Last month" may reach before the initially loaded window.
-    const win = rangeWindow(f.range, new Date(), timeZone)
-    if (win) void data.ensureRange(win.from, win.to)
+    // A chosen range may reach outside the loaded window; load the grid plus the range.
+    if (f.dateRange) {
+      const win = fetchWindow(month, f.dateRange, weekStartsOn, timeZone)
+      void data.ensureRange(win.from, win.to)
+    }
   }
-  const [month, setMonth] = React.useState(() => new Date())
-  const [selected, setSelected] = React.useState<CalendarEvent | null>(null)
-  const [loadingMore, setLoadingMore] = React.useState(false)
+  const filtered = isFiltered(filters, baseFilters)
+  const clearFilters = () => changeFilters(baseFilters)
 
-  // Calendar view ignores the timeframe/range controls but keeps search + location.
-  const listEvents = React.useMemo(() => filterEvents(data.events, filters, { timeZone }), [data.events, filters, timeZone])
-  const monthEvents = React.useMemo(
-    () => filterEvents(data.events, { ...filters, timeframe: "all", range: "all" }, { timeZone }),
+  // List shows the visible month unless a date range is chosen.
+  const listRange = useMemo(
+    () => filters.dateRange ?? monthRange(month, timeZone),
+    [filters.dateRange, month, timeZone],
+  )
+  const listDays = dayWindow(listRange, timeZone)
+  const listEvents = useMemo(
+    () => filterEvents(data.events, { ...filters, dateRange: listRange }, { timeZone }),
+    [data.events, filters, listRange, timeZone],
+  )
+  // Calendar view keeps search + location; it does not hide days outside the range.
+  const monthEvents = useMemo(
+    () => filterEvents(data.events, { ...filters, dateRange: undefined }, { timeZone }),
     [data.events, filters, timeZone],
   )
-  const locations = React.useMemo(() => uniqueLocations(data.events), [data.events])
+  const locations = useMemo(() => uniqueLocations(data.events), [data.events])
 
   const changeMonth = (m: Date) => {
     setMonth(m)
-    void data.ensureRange(startOfMonth(m, timeZone), startOfMonth(m, timeZone, 1))
+    const win = fetchWindow(m, undefined, weekStartsOn, timeZone)
+    void data.ensureRange(win.from, win.to)
+  }
+
+  // On mobile, tapping a day in the grid shows that day in the list.
+  const jumpToDay = (day: Date) => {
+    changeFilters({ ...filters, dateRange: { from: startOfDay(day, timeZone) } })
+    setView("list")
   }
 
   // Selecting an event also mirrors it to the URL so the page can be shared.
-  const select = React.useCallback(
-    (e: CalendarEvent | null) => {
-      setSelected(e)
+  const setUrlParam = useCallback(
+    (name: string, value: string | null) => {
       if (!syncUrl || typeof window === "undefined") return
       const u = new URL(window.location.href)
-      if (e) u.searchParams.set(SHARE_PARAM, e.id)
-      else u.searchParams.delete(SHARE_PARAM)
+      if (value) u.searchParams.set(name, value)
+      else u.searchParams.delete(name)
       window.history.replaceState(window.history.state, "", u)
     },
     [syncUrl],
   )
+  const select = useCallback(
+    (e: CalendarEvent | null) => {
+      setSelected(e)
+      setUrlParam(SHARE_PARAM, e ? e.id : null)
+    },
+    [setUrlParam],
+  )
+
+  // Opening a day mirrors it to the URL as `?day=YYYY-MM-DD`; closing removes it.
+  const changeDay = (day: Date | null) => {
+    setOpenDay(day)
+    setUrlParam(DAY_PARAM, day ? dayKey(day, timeZone) : null)
+  }
 
   // Deep link: open `?event=<id>` once, from loaded data or a direct lookup.
-  const deepLinkDone = React.useRef(false)
-  React.useEffect(() => {
+  const deepLinkDone = useRef(false)
+  useEffect(() => {
     if (!syncUrl || deepLinkDone.current || data.status === "idle" || data.status === "loading") return
     deepLinkDone.current = true
     const id = new URLSearchParams(window.location.search).get(SHARE_PARAM)
@@ -128,37 +193,20 @@ export function CalendarEvents(props: CalendarEventsProps) {
     }
   }, [syncUrl, data.status, data.events, apiKey, calendarId, baseUrl, fetcher, timeZone])
 
-  const loadMore = async () => {
-    setLoadingMore(true)
-    try {
-      await data.loadMorePast()
-    } finally {
-      setLoadingMore(false)
-    }
-  }
+  const dayTapHandler = dayModalEnabled ? changeDay : isDesktop ? undefined : jumpToDay
 
   const shareUrl = getShareUrl ?? ((e: CalendarEvent) => defaultShareUrl(e))
 
   return (
     <div className={cn("space-y-4", className)} data-slot="calendar-events">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="tablist" aria-label="View" className="inline-flex rounded-md border p-0.5">
-          {(["list", "calendar"] as const).map((v) => (
-            <Button
-              key={v}
-              role="tab"
-              aria-selected={view === v}
-              variant={view === v ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setView(v)}
-            >
-              {v === "list" ? <List className="size-4" /> : <CalendarDays className="size-4" />}
-              {v === "list" ? "List" : "Calendar"}
-            </Button>
-          ))}
-        </div>
-        {showLinks && <LinksBar calendarId={calendarId} timeZone={timeZone} />}
-      </div>
+      <CalendarToolbar
+        month={month}
+        timeZone={timeZone}
+        onMonthChange={changeMonth}
+        view={view}
+        onViewChange={setView}
+        rangeLabel={filters.dateRange ? formatDayRange(filters.dateRange, timeZone) : undefined}
+      />
 
       {showFilters && (
         <FiltersBar
@@ -166,7 +214,10 @@ export function CalendarEvents(props: CalendarEventsProps) {
           onChange={changeFilters}
           defaults={baseFilters}
           locations={locations}
-          showTimeControls={view === "list"}
+          month={month}
+          onMonthChange={changeMonth}
+          events={data.events}
+          timeZone={timeZone}
         />
       )}
 
@@ -179,33 +230,47 @@ export function CalendarEvents(props: CalendarEventsProps) {
           </Button>
         </div>
       ) : data.status === "loading" && data.events.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground" role="status">
-          Loading events…
-        </p>
+        <LoadingSkeleton />
       ) : view === "list" ? (
         <ListView
           events={listEvents}
+          days={listDays}
           timeZone={timeZone}
+          multiDay={multiDayList}
           onSelect={select}
           renderEvent={renderEvent}
           emptyState={emptyState}
-          onLoadMore={filters.timeframe !== "upcoming" ? loadMore : undefined}
-          loadingMore={loadingMore}
+          filtered={filtered}
+          onClearFilters={clearFilters}
         />
       ) : (
         <CalendarView
           events={monthEvents}
           month={month}
           timeZone={timeZone}
+          weekStartsOn={weekStartsOn}
           onMonthChange={changeMonth}
           onSelect={select}
+          onDayTap={dayTapHandler}
+          dateRange={filters.dateRange}
           loading={data.status === "loading"}
         />
       )}
 
+      {showLinks && <LinksBar calendarId={calendarId} timeZone={timeZone} />}
+
       {data.source === "ical" && !apiKey ? null : data.source === "cache" && (
         <p className="text-xs text-muted-foreground">Showing saved events; couldn't reach the calendar.</p>
       )}
+
+      <DayModal
+        day={openDay}
+        events={monthEvents}
+        timeZone={timeZone}
+        onSelect={select}
+        onClose={() => changeDay(null)}
+        renderDay={renderDay}
+      />
 
       <EventModal
         event={selected}
@@ -218,3 +283,20 @@ export function CalendarEvents(props: CalendarEventsProps) {
   )
 }
 
+/** First-load placeholder shaped like list cards. Announced once via the status text. */
+function LoadingSkeleton() {
+  return (
+    <div role="status" className="space-y-2">
+      <span className="sr-only">Loading events…</span>
+      {[0, 1, 2].map((i) => (
+        <div key={i} aria-hidden="true" className="flex gap-4 rounded-lg border p-4">
+          <div className="size-14 shrink-0 animate-pulse rounded-md bg-muted" />
+          <div className="flex-1 space-y-2 py-1">
+            <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}

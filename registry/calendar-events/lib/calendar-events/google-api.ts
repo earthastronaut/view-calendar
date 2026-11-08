@@ -21,6 +21,10 @@ interface ApiEventList {
   nextPageToken?: string
 }
 
+/** Only the fields `mapApiItem` reads; keeps `events.list` payloads small. */
+export const EVENT_LIST_FIELDS =
+  "nextPageToken,items(id,summary,description,location,htmlLink,recurringEventId,status,start,end)"
+
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message)
@@ -98,6 +102,7 @@ export async function fetchFromGoogleApi(opts: LoadOptions & { apiKey: string })
       singleEvents: "true",
       orderBy: "startTime",
       maxResults: "250",
+      fields: EVENT_LIST_FIELDS,
     })
     if (pageToken) params.set("pageToken", pageToken)
     const url = `${base}/calendar/v3/calendars/${encodeURIComponent(opts.calendarId)}/events?${params}`

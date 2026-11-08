@@ -1,0 +1,288 @@
+[
+  {
+    "id": "weekly-planning",
+    "summary": "Weekly planning",
+    "description": "Recurring series: the same event repeats every 7 days.\nAgenda:\n- Review last week\n- Pick priorities",
+    "location": "Room 4B",
+    "dayOffset": 0,
+    "time": "10:00",
+    "durationMinutes": 60,
+    "repeat": { "everyDays": 7, "count": 12 }
+  },
+  {
+    "id": "daily-standup",
+    "summary": "Standup",
+    "description": "Short recurring event. Repeats daily for two weeks.",
+    "dayOffset": -2,
+    "time": "09:15",
+    "durationMinutes": 15,
+    "repeat": { "everyDays": 1, "count": 14 }
+  },
+  {
+    "id": "yoga-today",
+    "summary": "Morning yoga",
+    "description": "Timed event today, with a location and no description markup.",
+    "location": "Studio A, 120 Main St",
+    "dayOffset": 0,
+    "time": "07:00",
+    "durationMinutes": 45
+  },
+  {
+    "id": "design-review",
+    "summary": "Design review",
+    "description": "Overlaps the next event on purpose.",
+    "location": "Zoom",
+    "dayOffset": 0,
+    "time": "14:00",
+    "durationMinutes": 90
+  },
+  {
+    "id": "coffee-chat",
+    "summary": "Coffee chat",
+    "description": "Starts while the design review is still running.",
+    "location": "Café Roma",
+    "dayOffset": 0,
+    "time": "14:30",
+    "durationMinutes": 30
+  },
+  {
+    "id": "ends-at-midnight",
+    "summary": "Late show",
+    "description": "Ends exactly at midnight, so it must not spill onto the next day.",
+    "location": "The Orpheum",
+    "dayOffset": 1,
+    "time": "20:00",
+    "durationMinutes": 240
+  },
+  {
+    "id": "busy-1",
+    "summary": "Breakfast meetup",
+    "dayOffset": 3,
+    "time": "08:00",
+    "durationMinutes": 60,
+    "location": "Blue Door Bakery"
+  },
+  {
+    "id": "busy-2",
+    "summary": "Sprint demo",
+    "dayOffset": 3,
+    "time": "10:00",
+    "durationMinutes": 60,
+    "location": "Main hall"
+  },
+  {
+    "id": "busy-3",
+    "summary": "Lunch & learn: intro to accessibility",
+    "description": "<p>Ben walks through <b>screen readers</b>, focus order &amp; color contrast.</p><p>Lunch is provided.</p>",
+    "dayOffset": 3,
+    "time": "12:00",
+    "durationMinutes": 60,
+    "location": "Cafeteria"
+  },
+  {
+    "id": "busy-4",
+    "summary": "1:1 with Sam",
+    "dayOffset": 3,
+    "time": "15:00",
+    "durationMinutes": 30
+  },
+  {
+    "id": "busy-5",
+    "summary": "Happy hour",
+    "dayOffset": 3,
+    "time": "17:30",
+    "durationMinutes": 120,
+    "location": "The Tap Room"
+  },
+  {
+    "id": "company-holiday",
+    "summary": "Company holiday",
+    "description": "Single all-day event.",
+    "dayOffset": 5,
+    "allDay": true
+  },
+  {
+    "id": "conference",
+    "summary": "Design Systems Conference",
+    "description": "All-day event spanning three days.\n\nSchedule and tickets: https://example.com/conference",
+    "location": "Convention Center, Portland",
+    "dayOffset": 8,
+    "allDay": true,
+    "days": 3,
+    "htmlLink": "https://example.com/conference"
+  },
+  {
+    "id": "hackathon",
+    "summary": "Overnight hackathon",
+    "description": "Timed event that crosses midnight: Friday 6 PM through noon the next day.",
+    "location": "Innovation Lab",
+    "dayOffset": 12,
+    "time": "18:00",
+    "durationMinutes": 1080
+  },
+  {
+    "id": "camping-trip",
+    "summary": "Team camping trip",
+    "description": "Timed multi-day event: starts one afternoon and ends two days later.",
+    "location": "Lake Tahoe",
+    "dayOffset": 16,
+    "time": "15:00",
+    "durationMinutes": 3600
+  },
+  {
+    "id": "offsite",
+    "summary": "Leadership offsite",
+    "description": "A longer all-day span (five days) that crosses week rows in the month grid.",
+    "location": "Napa Valley",
+    "dayOffset": 20,
+    "allDay": true,
+    "days": 5
+  },
+  {
+    "id": "travel-week",
+    "summary": "Travel week",
+    "description": "Multi-day, all-day. Overlaps the client onsite below and the busy day.",
+    "dayOffset": 1,
+    "allDay": true,
+    "days": 4
+  },
+  {
+    "id": "client-onsite",
+    "summary": "Client onsite",
+    "description": "Timed multi-day event: 9 AM to 9 AM two days later. Overlaps Travel week.",
+    "location": "Client HQ",
+    "dayOffset": 2,
+    "time": "09:00",
+    "durationMinutes": 2880
+  },
+  {
+    "id": "workshop-series",
+    "summary": "Workshop series",
+    "description": "Starts during the conference and runs past it.",
+    "location": "Training room",
+    "dayOffset": 9,
+    "allDay": true,
+    "days": 4
+  },
+  {
+    "id": "partner-visit",
+    "summary": "Partner visit",
+    "description": "Overlaps both the conference and the workshop series.",
+    "dayOffset": 10,
+    "allDay": true,
+    "days": 3
+  },
+  {
+    "id": "trade-show",
+    "summary": "Vendor trade show",
+    "description": "Timed multi-day event overlapping the all-day events above.",
+    "location": "Expo Hall",
+    "dayOffset": 9,
+    "time": "15:00",
+    "durationMinutes": 2880
+  },
+  {
+    "id": "remote-week",
+    "summary": "Remote work week",
+    "description": "Overlaps the camping trip and runs into the product sprint.",
+    "dayOffset": 15,
+    "allDay": true,
+    "days": 5
+  },
+  {
+    "id": "product-sprint",
+    "summary": "Product sprint",
+    "description": "A week-long all-day span that wraps into the next week row and overlaps the offsite.",
+    "dayOffset": 18,
+    "allDay": true,
+    "days": 7
+  },
+  {
+    "id": "hiking-weekend",
+    "summary": "Hiking weekend",
+    "description": "Timed multi-day event inside the offsite and sprint.",
+    "location": "Mount Rainier",
+    "dayOffset": 21,
+    "time": "09:00",
+    "durationMinutes": 3000
+  },
+  {
+    "id": "contractor-onsite",
+    "summary": "Contractor onsite",
+    "dayOffset": 22,
+    "allDay": true,
+    "days": 3
+  },
+  {
+    "id": "submit-report",
+    "summary": "Reminder: submit expense report",
+    "description": "Zero-length event: start and end are the same instant.",
+    "dayOffset": 4,
+    "time": "17:00",
+    "durationMinutes": 0
+  },
+  {
+    "id": "untitled",
+    "description": "This event has no title, so the UI should fall back to (No title).",
+    "dayOffset": 6,
+    "time": "11:00",
+    "durationMinutes": 30
+  },
+  {
+    "id": "long-text",
+    "summary": "An unreasonably long event title that goes on and on to check truncation and wrapping in cards and grid cells",
+    "description": "Line one of a long description.\nLine two follows directly.\n\nA second paragraph with a link: https://example.com/a/very/long/path/that/should/not/overflow/the/modal/layout?with=query&and=more\n\nAnd a third paragraph to push the modal into scrolling. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+    "location": "A venue with a very long name, 1234 Boulevard of the Extremely Long Street Names, Springfield",
+    "dayOffset": 9,
+    "time": "13:00",
+    "durationMinutes": 120
+  },
+  {
+    "id": "with-link",
+    "summary": "Event with a Google link",
+    "description": "Carries an htmlLink, like events returned by the real API.",
+    "dayOffset": 7,
+    "time": "16:00",
+    "durationMinutes": 60,
+    "htmlLink": "https://www.google.com/calendar/event?eid=example"
+  },
+  {
+    "id": "cancelled",
+    "summary": "Cancelled meeting (should not appear)",
+    "dayOffset": 2,
+    "time": "11:00",
+    "durationMinutes": 60,
+    "status": "cancelled"
+  },
+  {
+    "id": "past-workshop",
+    "summary": "Past workshop",
+    "description": "Happened earlier this month; check history and past-event styling.",
+    "location": "Workshop room",
+    "dayOffset": -3,
+    "time": "13:00",
+    "durationMinutes": 120
+  },
+  {
+    "id": "past-all-day",
+    "summary": "Past all-day event",
+    "dayOffset": -12,
+    "allDay": true
+  },
+  {
+    "id": "next-month-launch",
+    "summary": "Product launch",
+    "description": "Far enough ahead to land in next month's grid.",
+    "location": "HQ",
+    "dayOffset": 38,
+    "time": "09:00",
+    "durationMinutes": 180
+  },
+  {
+    "id": "next-month-retreat",
+    "summary": "Quarterly retreat",
+    "dayOffset": 45,
+    "allDay": true,
+    "days": 2
+  }
+]

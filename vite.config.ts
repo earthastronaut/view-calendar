@@ -7,6 +7,10 @@ import tailwindcss from "@tailwindcss/vite"
 // to consumers via `pnpm registry:build`.
 export default defineConfig({
   root: "dev",
+  // The .env file lives at the repo root, not in `dev/`.
+  envDir: fileURLToPath(new URL(".", import.meta.url)),
+  // Expose only these dev variables to the playground (client code).
+  envPrefix: ["GOOGLE_CALENDAR_ID", "PUBLIC_GOOGLE_CALENDAR_API_KEY"],
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: [

@@ -1,8 +1,11 @@
 import * as React from "react"
+import { Button } from "@/components/ui/button"
 import { CalendarEvents } from "@/ui/calendar-events"
 import { useCalendarEvents } from "@/hooks/use-calendar-events"
+import { clearEventCache } from "@/lib/calendar-events/source"
 import { filterEvents, defaultFilters } from "@/lib/calendar-events/filters"
-import { apiKeyFor, ConfigForm, loadDevConfig, type DevConfig } from "./config-form"
+import { addDays, defaultTimeZone } from "@/lib/calendar-events/time"
+import { ConfigForm, isConfigured, loadDevConfig, sourceProps, type DevConfig } from "./config-form"
 
 type Example = "component" | "list-view" | "calendar-view" | "headless"
 
@@ -16,33 +19,35 @@ const EXAMPLES: { id: Example; label: string }[] = [
 function Placeholder() {
   return (
     <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-foreground/60">
-      Enter a public Google Calendar ID above and click Apply.
+      Enter a public Google Calendar ID above, or pick the example events source, then click Apply.
     </div>
   )
 }
 
 function ComponentExample({ config }: { config: DevConfig }) {
-  if (!config.calendarId) return <Placeholder />
+  if (!isConfigured(config)) return <Placeholder />
   return (
     <CalendarEvents
-      calendarId={config.calendarId}
-      apiKey={apiKeyFor(config)}
+      {...sourceProps(config)}
       timeZone={config.timeZone || undefined}
       defaultView={config.defaultView}
+      multiDayList={config.multiDayList}
+      dayModal={config.dayModal}
       baseUrl={config.baseUrl || undefined}
+      showLinks={config.source !== "example"}
     />
   )
 }
 
 function ListViewExample({ config }: { config: DevConfig }) {
-  if (!config.calendarId) return <Placeholder />
+  if (!isConfigured(config)) return <Placeholder />
   return (
     <CalendarEvents
-      calendarId={config.calendarId}
-      apiKey={apiKeyFor(config)}
+      {...sourceProps(config)}
       timeZone={config.timeZone || undefined}
       baseUrl={config.baseUrl || undefined}
       defaultView="list"
+      multiDayList={config.multiDayList}
       showFilters={false}
       showLinks={false}
     />
@@ -50,32 +55,36 @@ function ListViewExample({ config }: { config: DevConfig }) {
 }
 
 function CalendarViewExample({ config }: { config: DevConfig }) {
-  if (!config.calendarId) return <Placeholder />
+  if (!isConfigured(config)) return <Placeholder />
   return (
     <CalendarEvents
-      calendarId={config.calendarId}
-      apiKey={apiKeyFor(config)}
+      {...sourceProps(config)}
       timeZone={config.timeZone || undefined}
       baseUrl={config.baseUrl || undefined}
-      defaultView="calendar"
+      defaultView="month"
+      dayModal={config.dayModal}
+      showLinks={config.source !== "example"}
     />
   )
 }
 
 function HeadlessExample({ config }: { config: DevConfig }) {
   const { events, status, error, source } = useCalendarEvents({
-    calendarId: config.calendarId,
-    apiKey: apiKeyFor(config),
+    ...sourceProps(config),
     timeZone: config.timeZone || undefined,
     baseUrl: config.baseUrl || undefined,
-    enabled: Boolean(config.calendarId),
+    enabled: isConfigured(config),
   })
 
-  if (!config.calendarId) return <Placeholder />
+  if (!isConfigured(config)) return <Placeholder />
 
-  const upcoming = filterEvents(events, { ...defaultFilters, range: "week" }, {
-    timeZone: config.timeZone || undefined,
-  })
+  const timeZone = config.timeZone || defaultTimeZone()
+  const now = new Date()
+  const upcoming = filterEvents(
+    events,
+    { ...defaultFilters, dateRange: { from: now, to: addDays(now, 6, timeZone) } },
+    { timeZone },
+  )
 
   return (
     <div className="flex flex-col gap-3 text-sm">
@@ -110,6 +119,22 @@ const EXAMPLE_COMPONENTS: Record<
   headless: HeadlessExample,
 }
 
+function ClearCacheButton() {
+  const [cleared, setCleared] = React.useState<number | null>(null)
+  return (
+    <div className="flex items-center gap-3">
+      <Button type="button" variant="outline" size="sm" onClick={() => setCleared(clearEventCache())}>
+        Clear event cache
+      </Button>
+      {cleared !== null && (
+        <span role="status" className="text-xs text-foreground/60">
+          Cleared {cleared} cached {cleared === 1 ? "entry" : "entries"}.
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function App() {
   const [config, setConfig] = React.useState<DevConfig>(() => loadDevConfig())
   const [example, setExample] = React.useState<Example>("component")
@@ -126,6 +151,8 @@ export function App() {
       </header>
 
       <ConfigForm config={config} onChange={setConfig} />
+
+      <ClearCacheButton />
 
       <nav className="flex flex-wrap gap-2 border-b border-border pb-2">
         {EXAMPLES.map((e) => (

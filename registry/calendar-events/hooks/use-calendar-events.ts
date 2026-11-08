@@ -1,4 +1,4 @@
-import * as React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { loadEvents } from "@/lib/calendar-events/source";
 import { defaultTimeZone, startOfMonth } from "@/lib/calendar-events/time";
 import type {
@@ -9,7 +9,7 @@ import type {
 
 export interface UseCalendarEventsOptions extends Pick<
   LoadOptions,
-  "calendarId" | "apiKey" | "baseUrl" | "fetcher" | "icalProxies" | "timeoutMs"
+  "calendarId" | "apiKey" | "baseUrl" | "fetcher" | "icalProxies" | "timeoutMs" | "cacheKey" | "cacheTtlMs"
 > {
   timeZone?: string;
   /** Months of history loaded initially. Default 1. */
@@ -29,7 +29,7 @@ export interface UseCalendarEvents {
   range: { from: Date; to: Date };
   /** Fetch more history, `months` back from the current window start. Resolves true if anything new was found. */
   loadMorePast: (months?: number) => Promise<boolean>;
-  /** Make sure `[from, to]` is loaded (used by month navigation). */
+  /** Make sure `[from, to)` is loaded (month navigation passes the week-padded grid window). */
   ensureRange: (from: Date, to: Date) => Promise<void>;
   reload: () => void;
 }
@@ -52,28 +52,30 @@ export function useCalendarEvents(
     fetcher,
     icalProxies,
     timeoutMs,
+    cacheKey,
+    cacheTtlMs,
     enabled = true,
   } = opts;
   const timeZone = opts.timeZone ?? defaultTimeZone();
   const monthsBack = opts.monthsBack ?? 1;
   const monthsAhead = opts.monthsAhead ?? 6;
 
-  const [events, setEvents] = React.useState<CalendarEvent[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [status, setStatus] =
-    React.useState<UseCalendarEvents["status"]>("idle");
-  const [error, setError] = React.useState<Error | null>(null);
-  const [source, setSource] = React.useState<EventSource | null>(null);
-  const [range, setRange] = React.useState(() => {
+    useState<UseCalendarEvents["status"]>("idle");
+  const [error, setError] = useState<Error | null>(null);
+  const [source, setSource] = useState<EventSource | null>(null);
+  const [range, setRange] = useState(() => {
     const now = new Date();
     return {
       from: startOfMonth(now, timeZone, -monthsBack),
       to: startOfMonth(now, timeZone, monthsAhead),
     };
   });
-  const rangeRef = React.useRef(range);
-  const [nonce, setNonce] = React.useState(0);
+  const rangeRef = useRef(range);
+  const [nonce, setNonce] = useState(0);
 
-  const fetchWindow = React.useCallback(
+  const load = useCallback(
     (from: Date, to: Date) =>
       loadEvents({
         calendarId,
@@ -82,15 +84,17 @@ export function useCalendarEvents(
         fetcher,
         icalProxies,
         timeoutMs,
+        cacheKey,
+        cacheTtlMs,
         timeZone,
         timeMin: from,
         timeMax: to,
       }),
-    [calendarId, apiKey, baseUrl, fetcher, icalProxies, timeoutMs, timeZone],
+    [calendarId, apiKey, baseUrl, fetcher, icalProxies, timeoutMs, cacheKey, cacheTtlMs, timeZone],
   );
 
   // Initial / reload fetch.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
     const now = new Date();
@@ -102,7 +106,7 @@ export function useCalendarEvents(
     setRange(r);
     setStatus("loading");
     setError(null);
-    fetchWindow(r.from, r.to)
+    load(r.from, r.to)
       .then((res) => {
         if (cancelled) return;
         setEvents(res.events);
@@ -117,15 +121,15 @@ export function useCalendarEvents(
     return () => {
       cancelled = true;
     };
-  }, [enabled, fetchWindow, monthsBack, monthsAhead, timeZone, nonce]);
+  }, [enabled, load, monthsBack, monthsAhead, timeZone, nonce]);
 
-  const extend = React.useCallback(
+  const extend = useCallback(
     async (from: Date, to: Date): Promise<boolean> => {
       const cur = rangeRef.current;
       const jobs: Promise<CalendarEvent[]>[] = [];
       if (from < cur.from)
-        jobs.push(fetchWindow(from, cur.from).then((r) => r.events));
-      if (to > cur.to) jobs.push(fetchWindow(cur.to, to).then((r) => r.events));
+        jobs.push(load(from, cur.from).then((r) => r.events));
+      if (to > cur.to) jobs.push(load(cur.to, to).then((r) => r.events));
       if (!jobs.length) return false;
       const next = {
         from: from < cur.from ? from : cur.from,
@@ -143,10 +147,10 @@ export function useCalendarEvents(
         return false;
       }
     },
-    [fetchWindow],
+    [load],
   );
 
-  const loadMorePast = React.useCallback(
+  const loadMorePast = useCallback(
     (months = 6) =>
       extend(
         startOfMonth(rangeRef.current.from, timeZone, -months),
@@ -154,13 +158,13 @@ export function useCalendarEvents(
       ),
     [extend, timeZone],
   );
-  const ensureRange = React.useCallback(
+  const ensureRange = useCallback(
     async (from: Date, to: Date) => {
       await extend(from, to);
     },
     [extend],
   );
-  const reload = React.useCallback(() => setNonce((n) => n + 1), []);
+  const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   return {
     events,

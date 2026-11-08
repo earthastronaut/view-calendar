@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/*
+ * The Vite root is `dev/`, so Tailwind v4 only auto-detects sources below it. The registry
+ * components live outside it; without this line utilities such as `grid-cols-7` are never
+ * generated and the month grid collapses into a stack. Consumers don't need this, since their
+ * Tailwind already scans their `components/` directory.
+ */
+@source "../registry";
+
+@custom-variant dark (&:is(.dark, .dark *));
+
 :root {
   --background: 0 0% 100%;
   --foreground: 240 10% 4%;
@@ -7,10 +17,49 @@
   --primary-foreground: 0 0% 98%;
   --secondary: 240 5% 96%;
   --secondary-foreground: 240 6% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 4%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 46%;
   --accent: 240 5% 96%;
+  --destructive: 0 72% 51%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 4%;
   --border: 240 6% 90%;
   --input: 240 6% 90%;
   --ring: 240 6% 10%;
+}
+
+/* Toggle with `document.documentElement.classList.toggle("dark")`. */
+:root.dark {
+  color-scheme: dark;
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 240 6% 10%;
+  --secondary: 240 4% 16%;
+  --secondary-foreground: 0 0% 98%;
+  --card: 240 10% 6%;
+  --card-foreground: 0 0% 98%;
+  --muted: 240 4% 16%;
+  --muted-foreground: 240 5% 65%;
+  --accent: 240 4% 16%;
+  --destructive: 0 62% 45%;
+  --popover: 240 10% 6%;
+  --popover-foreground: 0 0% 98%;
+  --border: 240 4% 20%;
+  --input: 240 4% 24%;
+  --ring: 240 5% 65%;
+}
+
+/* Tailwind v4 borders default to currentColor; shadcn's base layer sets this in a real app. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop {
+    border-color: hsl(var(--border));
+  }
 }
 
 body {
@@ -30,7 +79,14 @@ body {
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent: hsl(var(--accent));
+  --color-destructive: hsl(var(--destructive));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));

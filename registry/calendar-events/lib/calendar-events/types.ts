@@ -14,6 +14,18 @@ export interface CalendarEvent {
   recurringId?: string
 }
 
+/** Absolute, inclusive range of calendar days. A missing `to` means the single day `from`. */
+export interface DateRange {
+  from: Date
+  to?: Date
+}
+
+/**
+ * How the list shows an event that spans several days: under `"each"` day it covers, or
+ * once under the day it `"start"`s on, with its start and end shown on the card.
+ */
+export type MultiDayListMode = "each" | "start"
+
 export type EventSource = "google-api" | "ical" | "cache"
 
 export interface LoadOptions {
@@ -31,6 +43,8 @@ export interface LoadOptions {
   icalProxies?: string[]
   /** sessionStorage key prefix; set to null to disable caching. */
   cacheKey?: string | null
+  /** How long a cached result may be used as the last-resort fallback, in ms. Default 24 hours. */
+  cacheTtlMs?: number
   timeoutMs?: number
   retries?: number
 }

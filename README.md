@@ -5,7 +5,7 @@ A shadcn-style registry for showing a **public Google Calendar** as a list or mo
 Two registry items:
 
 - `calendar-events-core` — headless: loading (Google API → iCal → cache), filters, links, plain-text descriptions, `useCalendarEvents` hook. No UI, no runtime dependencies.
-- `calendar-events` — UI built on shadcn `button`, `dialog`, `input`. Depends on the core.
+- `calendar-events` — UI built on shadcn `button`, `calendar`, `dialog`, `input`, `popover`. Depends on the core.
 
 ## Use
 
@@ -16,18 +16,24 @@ import { CalendarEvents } from "@/components/calendar-events"
   calendarId="xxxx@group.calendar.google.com"
   apiKey={import.meta.env.PUBLIC_GOOGLE_CALENDAR_API_KEY} // optional; falls back to iCal
   timeZone="America/Los_Angeles"                          // optional; default browser tz
-  defaultView="list"                                      // "list" | "calendar"
+  defaultView="list"                                      // optional: "list" | "month"; default is month at md+, list below
+  multiDayList="start"                                    // optional: "each" (default) repeats multi-day events per day; "start" lists them once
 />
 ```
 
 Headless only:
 
 ```ts
-const { events, status, loadMorePast } = useCalendarEvents({ calendarId, apiKey })
-const upcoming = filterEvents(events, { ...defaultFilters, range: "week" }, { timeZone })
+const { events, status } = useCalendarEvents({ calendarId, apiKey })
+// dateRange is an inclusive range of calendar days; a missing `to` means the single day `from`.
+const next7Days = filterEvents(
+  events,
+  { ...defaultFilters, dateRange: { from: new Date(), to: addDays(new Date(), 6, timeZone) } },
+  { timeZone },
+)
 ```
 
-Props worth knowing: `view`/`onViewChange`, `filters`/`onFiltersChange`, `getShareUrl`, `syncUrl` (opens `?event=<id>`), `renderEvent`, `renderDescription`, `baseUrl` (proxy the Google API), `icalProxies`.
+Props worth knowing: `view`/`onViewChange`, `filters`/`onFiltersChange`, `getShareUrl`, `syncUrl` (opens `?event=<id>`, and mirrors the day modal as `?day=YYYY-MM-DD`), `renderEvent`, `renderDescription`, `dayModal` (click a day in the month grid to open it in a modal) and `renderDay` (custom modal body: `(day, events, { select, close }) => ReactNode`; implies `dayModal`), `baseUrl` (proxy the Google API), `icalProxies`.
 
 ## Rich descriptions
 
@@ -64,4 +70,6 @@ pnpm registry:build   # writes public/r/*.json
 key, a source toggle (API key or iCal), time zone, default view, and proxy base URL, plus tabs that exercise the
 full component, the list/calendar sub-views, and the headless `useCalendarEvents`
 hook directly. Values are kept in `localStorage` so you don't have to re-enter
-them. It's for local iteration only and isn't part of the published registry.
+them. If a `.env` file exists (copy `.env.example`), `GOOGLE_CALENDAR_ID` and
+`PUBLIC_GOOGLE_CALENDAR_API_KEY` pre-populate the calendar id and API key
+fields. It's for local iteration only and isn't part of the published registry.

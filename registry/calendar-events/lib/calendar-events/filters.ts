@@ -1,57 +1,38 @@
-import type { CalendarEvent } from "./types"
+import type { CalendarEvent, DateRange } from "./types"
 import { addDays, defaultTimeZone, startOfDay, startOfMonth } from "./time"
-
-export type Timeframe = "upcoming" | "past" | "all"
-export type RelativeRange =
-  | "all"
-  | "today"
-  | "week" // today through the next 7 days
-  | "month" // today to end of this month
-  | "next-month"
-  | "last-7-days" // 7 days ago through the end of today
-  | "month-to-date" // first of this month through the end of today
-  | "last-month" // the previous calendar month
-  | { withinDays: number } // today through the next N days
-  | { pastDays: number } // N days ago through the end of today
 
 export interface FilterState {
   search: string
   /** Exact location match; "" = any. Use NO_LOCATION for events without one. */
   location: string
-  timeframe: Timeframe
-  range: RelativeRange
+  /** Absolute, inclusive range of calendar days; undefined = no date restriction. */
+  dateRange?: DateRange
 }
 
 export const NO_LOCATION = "__none__"
 
-export const defaultFilters: FilterState = { search: "", location: "", timeframe: "upcoming", range: "all" }
+export const defaultFilters: FilterState = { search: "", location: "" }
+
+/** Same calendar days, compared on the instants given. A missing `to` means the single day `from`. */
+export function sameDateRange(a: DateRange | undefined, b: DateRange | undefined): boolean {
+  if (!a || !b) return a === b
+  return a.from.getTime() === b.from.getTime() && (a.to ?? a.from).getTime() === (b.to ?? b.from).getTime()
+}
 
 export function isFiltered(f: FilterState, base: FilterState = defaultFilters): boolean {
   return (
     f.search.trim() !== "" ||
     f.location !== "" ||
-    f.timeframe !== base.timeframe ||
-    JSON.stringify(f.range) !== JSON.stringify(base.range)
+    !sameDateRange(f.dateRange, base.dateRange)
   )
 }
 
-/** [from, to) window for a relative range in `timeZone`, or null for "all". */
-export function rangeWindow(
-  range: RelativeRange,
-  now: Date,
-  timeZone: string,
-): { from: Date; to: Date } | null {
-  if (range === "all") return null
-  const today = startOfDay(now, timeZone)
-  if (range === "today") return { from: today, to: addDays(today, 1, timeZone) }
-  if (range === "week") return { from: today, to: addDays(today, 7, timeZone) }
-  if (range === "month") return { from: today, to: startOfMonth(now, timeZone, 1) }
-  if (range === "next-month") return { from: startOfMonth(now, timeZone, 1), to: startOfMonth(now, timeZone, 2) }
-  if (range === "last-7-days") return { from: addDays(today, -7, timeZone), to: addDays(today, 1, timeZone) }
-  if (range === "month-to-date") return { from: startOfMonth(now, timeZone), to: addDays(today, 1, timeZone) }
-  if (range === "last-month") return { from: startOfMonth(now, timeZone, -1), to: startOfMonth(now, timeZone) }
-  if ("pastDays" in range) return { from: addDays(today, -Math.max(1, range.pastDays), timeZone), to: addDays(today, 1, timeZone) }
-  return { from: today, to: addDays(today, Math.max(1, range.withinDays), timeZone) }
+/** Inclusive range covering the whole calendar month that contains `month`. */
+export function monthRange(month: Date, timeZone: string): DateRange {
+  return {
+    from: startOfMonth(month, timeZone),
+    to: addDays(startOfMonth(month, timeZone, 1), -1, timeZone),
+  }
 }
 
 export function matchesSearch(e: CalendarEvent, query: string): boolean {
@@ -66,31 +47,34 @@ export function matchesLocation(e: CalendarEvent, location: string): boolean {
   return e.location === location
 }
 
-/** An event is "past" once it has ended; "upcoming" while it is ongoing or later. */
-export function matchesTimeframe(e: CalendarEvent, tf: Timeframe, now: Date): boolean {
-  if (tf === "all") return true
-  const ended = (e.end > e.start ? e.end : e.start).getTime() <= now.getTime()
-  return tf === "past" ? ended : !ended
+/** Half-open `[from, to)` instants covering the days of `range` in `timeZone`. */
+export function dayWindow(range: DateRange, timeZone: string): { from: Date; to: Date } {
+  return {
+    from: startOfDay(range.from, timeZone),
+    to: addDays(startOfDay(range.to ?? range.from, timeZone), 1, timeZone),
+  }
+}
+
+function overlaps(e: CalendarEvent, win: { from: Date; to: Date }): boolean {
+  // Zero-length events count when they start inside the window.
+  return e.start < win.to && (e.end > win.from || e.start >= win.from)
 }
 
 export interface FilterContext {
-  now?: Date
   timeZone?: string
 }
 
 export function filterEvents(events: CalendarEvent[], f: FilterState, ctx: FilterContext = {}): CalendarEvent[] {
-  const now = ctx.now ?? new Date()
   const tz = ctx.timeZone ?? defaultTimeZone()
-  const win = rangeWindow(f.range, now, tz)
-  const out = events.filter(
-    (e) =>
-      matchesTimeframe(e, f.timeframe, now) &&
-      matchesSearch(e, f.search) &&
-      matchesLocation(e, f.location) &&
-      (!win || (e.start < win.to && e.end > win.from) || (e.start >= win.from && e.start < win.to)),
-  )
-  const dir = f.timeframe === "past" ? -1 : 1
-  return out.sort((a, b) => dir * (a.start.getTime() - b.start.getTime()))
+  const win = f.dateRange ? dayWindow(f.dateRange, tz) : null
+  return events
+    .filter(
+      (e) =>
+        matchesSearch(e, f.search) &&
+        matchesLocation(e, f.location) &&
+        (!win || overlaps(e, win)),
+    )
+    .sort((a, b) => a.start.getTime() - b.start.getTime())
 }
 
 export function uniqueLocations(events: CalendarEvent[]): { value: string; label: string }[] {

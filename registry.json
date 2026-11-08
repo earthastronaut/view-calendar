@@ -35,6 +35,11 @@
           "target": "lib/calendar-events/source.ts"
         },
         {
+          "path": "registry/calendar-events/lib/calendar-events/week-layout.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/week-layout.ts"
+        },
+        {
           "path": "registry/calendar-events/lib/calendar-events/filters.ts",
           "type": "registry:lib",
           "target": "lib/calendar-events/filters.ts"
@@ -70,8 +75,10 @@
       "registryDependencies": [
         "calendar-events-core",
         "button",
+        "calendar",
         "dialog",
-        "input"
+        "input",
+        "popover"
       ],
       "files": [
         {
@@ -95,6 +102,11 @@
           "target": "components/calendar-events/event-card.tsx"
         },
         {
+          "path": "registry/calendar-events/ui/calendar-events/day-modal.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/day-modal.tsx"
+        },
+        {
           "path": "registry/calendar-events/ui/calendar-events/event-modal.tsx",
           "type": "registry:component",
           "target": "components/calendar-events/event-modal.tsx"
@@ -103,6 +115,21 @@
           "path": "registry/calendar-events/ui/calendar-events/filters-bar.tsx",
           "type": "registry:component",
           "target": "components/calendar-events/filters-bar.tsx"
+        },
+        {
+          "path": "registry/calendar-events/ui/calendar-events/date-filter.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/date-filter.tsx"
+        },
+        {
+          "path": "registry/calendar-events/ui/calendar-events/toolbar.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/toolbar.tsx"
+        },
+        {
+          "path": "registry/calendar-events/hooks/use-media-query.ts",
+          "type": "registry:hook",
+          "target": "hooks/use-media-query.ts"
         },
         {
           "path": "registry/calendar-events/ui/calendar-events/links-bar.tsx",

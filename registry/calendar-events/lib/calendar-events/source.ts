@@ -4,6 +4,9 @@ import { fetchFromICal } from "./ical"
 
 const PREFIX = "calendar-events:"
 
+/** How long a cached result stays usable as the last-resort fallback. */
+export const DEFAULT_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
 interface Cached {
   at: number
   events: (Omit<CalendarEvent, "start" | "end"> & { start: string; end: string })[]
@@ -14,12 +17,16 @@ function cacheKeyFor(o: LoadOptions): string | null {
   return `${PREFIX}${o.cacheKey ?? o.calendarId}:${o.timeMin.toISOString()}_${o.timeMax.toISOString()}`
 }
 
-function readCache(key: string | null): CalendarEvent[] | null {
+function readCache(key: string | null, ttlMs: number): CalendarEvent[] | null {
   if (!key || typeof sessionStorage === "undefined") return null
   try {
     const raw = sessionStorage.getItem(key)
     if (!raw) return null
     const c = JSON.parse(raw) as Cached
+    if (!(Date.now() - c.at <= ttlMs)) {
+      sessionStorage.removeItem(key)
+      return null
+    }
     return c.events.map((e) => ({ ...e, start: new Date(e.start), end: new Date(e.end) }))
   } catch {
     return null
@@ -32,6 +39,22 @@ function writeCache(key: string | null, events: CalendarEvent[]) {
     sessionStorage.setItem(key, JSON.stringify({ at: Date.now(), events } satisfies Omit<Cached, "events"> & { events: unknown }))
   } catch {
     /* quota or privacy mode: ignore */
+  }
+}
+
+/** Remove every cached event result. Returns how many entries were removed. */
+export function clearEventCache(): number {
+  if (typeof sessionStorage === "undefined") return 0
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i)
+      if (k?.startsWith(PREFIX)) keys.push(k)
+    }
+    for (const k of keys) sessionStorage.removeItem(k)
+    return keys.length
+  } catch {
+    return 0
   }
 }
 
@@ -81,7 +104,7 @@ export async function loadEvents(opts: LoadOptions): Promise<LoadResult> {
     writeCache(key, events)
     return { events, source: "ical" }
   } catch (e) {
-    const cached = readCache(key)
+    const cached = readCache(key, opts.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS)
     if (cached) return { events: cached, source: "cache" }
     // Without a key, iCal was the only attempt. With one, report why the API failed too,
     // otherwise a bad key looks like it was never used.

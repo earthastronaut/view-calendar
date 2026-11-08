@@ -1,4 +1,3 @@
-import * as React from "react"
 import { CalendarDays, Rss } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { calendarViewUrl, icalUrl, subscribeUrl } from "@/lib/calendar-events/links"
