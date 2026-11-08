@@ -3,7 +3,7 @@ import { List, CalendarDays } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useCalendarEvents, type UseCalendarEventsOptions } from "@/hooks/use-calendar-events"
-import { defaultFilters, filterEvents, uniqueLocations, type FilterState } from "@/lib/calendar-events/filters"
+import { defaultFilters, filterEvents, rangeWindow, uniqueLocations, type FilterState } from "@/lib/calendar-events/filters"
 import { fetchGoogleEvent } from "@/lib/calendar-events/google-api"
 import { SHARE_PARAM, shareUrl as defaultShareUrl } from "@/lib/calendar-events/links"
 import { defaultTimeZone, startOfMonth } from "@/lib/calendar-events/time"
@@ -76,6 +76,12 @@ export function CalendarEvents(props: CalendarEventsProps) {
   }
 
   const data = useCalendarEvents(source)
+  const changeFilters = (f: FilterState) => {
+    setFilters(f)
+    // Quick selects like "Last month" may reach before the initially loaded window.
+    const win = rangeWindow(f.range, new Date(), timeZone)
+    if (win) void data.ensureRange(win.from, win.to)
+  }
   const [month, setMonth] = React.useState(() => new Date())
   const [selected, setSelected] = React.useState<CalendarEvent | null>(null)
   const [loadingMore, setLoadingMore] = React.useState(false)
@@ -157,7 +163,7 @@ export function CalendarEvents(props: CalendarEventsProps) {
       {showFilters && (
         <FiltersBar
           value={filters}
-          onChange={setFilters}
+          onChange={changeFilters}
           defaults={baseFilters}
           locations={locations}
           showTimeControls={view === "list"}

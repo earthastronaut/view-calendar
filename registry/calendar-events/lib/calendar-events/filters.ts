@@ -8,7 +8,11 @@ export type RelativeRange =
   | "week" // today through the next 7 days
   | "month" // today to end of this month
   | "next-month"
-  | { withinDays: number }
+  | "last-7-days" // 7 days ago through the end of today
+  | "month-to-date" // first of this month through the end of today
+  | "last-month" // the previous calendar month
+  | { withinDays: number } // today through the next N days
+  | { pastDays: number } // N days ago through the end of today
 
 export interface FilterState {
   search: string
@@ -43,6 +47,10 @@ export function rangeWindow(
   if (range === "week") return { from: today, to: addDays(today, 7, timeZone) }
   if (range === "month") return { from: today, to: startOfMonth(now, timeZone, 1) }
   if (range === "next-month") return { from: startOfMonth(now, timeZone, 1), to: startOfMonth(now, timeZone, 2) }
+  if (range === "last-7-days") return { from: addDays(today, -7, timeZone), to: addDays(today, 1, timeZone) }
+  if (range === "month-to-date") return { from: startOfMonth(now, timeZone), to: addDays(today, 1, timeZone) }
+  if (range === "last-month") return { from: startOfMonth(now, timeZone, -1), to: startOfMonth(now, timeZone) }
+  if ("pastDays" in range) return { from: addDays(today, -Math.max(1, range.pastDays), timeZone), to: addDays(today, 1, timeZone) }
   return { from: today, to: addDays(today, Math.max(1, range.withinDays), timeZone) }
 }
 

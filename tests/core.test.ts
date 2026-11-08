@@ -156,6 +156,20 @@ describe("filters", () => {
     expect(filterEvents(events, { ...defaultFilters, range: "month" }, ctx).map((e) => e.id)).toEqual(["soon"])
     expect(filterEvents(events, { ...defaultFilters, range: "next-month" }, ctx).map((e) => e.id)).toEqual(["later"])
   })
+  it("applies past quick selects", () => {
+    const past = [
+      ...events,
+      ev({ id: "jan", summary: "Jan", start: new Date("2026-01-15T20:00:00Z"), end: new Date("2026-01-15T22:00:00Z") }),
+      ev({ id: "recent", summary: "Recent", start: new Date("2026-03-01T20:00:00Z"), end: new Date("2026-03-01T22:00:00Z") }),
+    ]
+    const f = { ...defaultFilters, timeframe: "past" as const }
+    expect(filterEvents(past, { ...f, range: "last-7-days" }, ctx).map((e) => e.id)).toEqual(["recent"])
+    expect(filterEvents(past, { ...f, range: "last-month" }, ctx).map((e) => e.id)).toEqual(["past"])
+    expect(filterEvents(past, f, ctx).map((e) => e.id)).toEqual(["recent", "past", "jan"])
+    expect(filterEvents(past, { ...f, range: "month-to-date" }, ctx).map((e) => e.id)).toEqual(["recent"])
+    expect(filterEvents(past, { ...f, range: { pastDays: 30 } }, ctx).map((e) => e.id)).toEqual(["recent"]) // Feb 1 is 31 days back
+    expect(filterEvents(past, { ...f, range: { pastDays: 90 } }, ctx).map((e) => e.id)).toEqual(["recent", "past", "jan"])
+  })
   it("searches and filters by location", () => {
     expect(filterEvents(events, { ...defaultFilters, search: "tan" }, ctx).map((e) => e.id)).toEqual(["later"])
     expect(filterEvents(events, { ...defaultFilters, location: "Studio A" }, ctx).map((e) => e.id)).toEqual(["soon"])
