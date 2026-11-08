@@ -12,7 +12,13 @@ Do not read from `./specs/` unless looking for a specific plan for your changes.
 
 Use `pnpm` only. Never run `npm`, `npx`, or `yarn`, and never create or commit `package-lock.json` or `yarn.lock`. The lockfile is `pnpm-lock.yaml`.
 
-## Code Style
+## Dependencies
+
+Keep `dependencies` minimal. A package belongs there only if code under `registry/` imports it at runtime; everything else — including anything imported solely by `dev/`, `tests/`, or build config — goes in `devDependencies`.
+
+The shadcn scaffolding (`clsx`, `tailwind-merge`, `class-variance-authority`, `@radix-ui/*`) is dev-only here. `dev/utils.ts` and `dev/ui/*` are stand-ins so this repo can typecheck and render the playground; consumers get the real versions from their own shadcn install via `registryDependencies`.
+
+What a consumer actually installs is the `dependencies` array on each item in `registry.json`, so keep that list in sync with the real imports and prefer adding none. Before reaching for a package, check whether a short local helper does the job — `lib/calendar-events/description.ts` replaced `marked` and `dompurify` that way. Where a dependency would only serve an optional nicety, expose a render prop (see `renderDescription`) and let the consumer bring their own.
 
 **Import Statements**
 
