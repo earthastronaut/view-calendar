@@ -4,6 +4,7 @@ import { mapApiItem } from "@/lib/calendar-events/google-api"
 import { filterEvents, defaultFilters, uniqueLocations, NO_LOCATION } from "@/lib/calendar-events/filters"
 import { buildIcs, createMapsUrl, googleAddToCalendarUrl, shareUrl } from "@/lib/calendar-events/links"
 import { descriptionExcerpt, normalizeDescription } from "@/lib/calendar-events/description"
+import { loadEvents } from "@/lib/calendar-events/source"
 import { dayKey, zonedDate } from "@/lib/calendar-events/time"
 import type { CalendarEvent } from "@/lib/calendar-events/types"
 
@@ -21,6 +22,81 @@ describe("api mapping", () => {
   })
   it("skips cancelled events", () => {
     expect(mapApiItem({ id: "a", status: "cancelled", start: { date: "2026-03-07" } }, TZ)).toBeNull()
+  })
+})
+
+describe("loadEvents source order", () => {
+  const range = { timeMin: new Date("2026-03-01T00:00:00Z"), timeMax: new Date("2026-04-01T00:00:00Z") }
+  const base = { calendarId: "cal@group.calendar.google.com", cacheKey: null, retries: 0, icalProxies: [], ...range }
+  const apiBody = { items: [{ id: "api1", summary: "From API", start: { dateTime: "2026-03-05T19:00:00Z" } }] }
+  const ics = [
+    "BEGIN:VCALENDAR", "BEGIN:VEVENT", "UID:ical1", "DTSTART:20260305T190000Z",
+    "SUMMARY:From iCal", "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n")
+  const blocked = {
+    error: { message: "Requests from referer http://localhost:5173/ are blocked." },
+  }
+
+  function mockFetch(handlers: { api: () => Response; ical: () => Response }) {
+    const urls: string[] = []
+    const fetcher = (async (input: RequestInfo | URL) => {
+      const url = String(input)
+      urls.push(url)
+      return url.includes("googleapis.com") ? handlers.api() : handlers.ical()
+    }) as typeof fetch
+    return { fetcher, urls }
+  }
+
+  it("uses the API first when a key is provided and skips iCal on success", async () => {
+    const { fetcher, urls } = mockFetch({
+      api: () => Response.json(apiBody),
+      ical: () => new Response(ics),
+    })
+    const res = await loadEvents({ ...base, apiKey: "k", timeZone: TZ, fetcher })
+    expect(res.source).toBe("google-api")
+    expect(res.events.map((e) => e.summary)).toEqual(["From API"])
+    expect(urls.every((u) => u.includes("googleapis.com"))).toBe(true)
+  })
+
+  it("goes straight to iCal when no key is provided", async () => {
+    const { fetcher, urls } = mockFetch({
+      api: () => Response.json(apiBody),
+      ical: () => new Response(ics),
+    })
+    const res = await loadEvents({ ...base, timeZone: TZ, fetcher })
+    expect(res.source).toBe("ical")
+    expect(urls.some((u) => u.includes("googleapis.com"))).toBe(false)
+  })
+
+  it("falls back to iCal when the API rejects the key", async () => {
+    const { fetcher } = mockFetch({
+      api: () => Response.json(blocked, { status: 403 }),
+      ical: () => new Response(ics),
+    })
+    const res = await loadEvents({ ...base, apiKey: "k", timeZone: TZ, fetcher })
+    expect(res.source).toBe("ical")
+    expect(res.events.map((e) => e.summary)).toEqual(["From iCal"])
+  })
+
+  it("reports the API failure as well when iCal fails too", async () => {
+    const { fetcher } = mockFetch({
+      api: () => Response.json(blocked, { status: 403 }),
+      ical: () => new Response("nope", { status: 403 }),
+    })
+    const err = await loadEvents({ ...base, apiKey: "k", timeZone: TZ, fetcher }).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    const message = (err as Error).message
+    expect(message).toContain("Google Calendar API responded 403")
+    expect(message).toContain("referer http://localhost:5173/ are blocked")
+    expect(message).toContain("iCal fetch responded 403")
+  })
+
+  it("keeps the plain iCal error when no key was tried", async () => {
+    const { fetcher } = mockFetch({
+      api: () => Response.json(apiBody),
+      ical: () => new Response("nope", { status: 403 }),
+    })
+    await expect(loadEvents({ ...base, timeZone: TZ, fetcher })).rejects.toThrow("iCal fetch responded 403")
   })
 })
 

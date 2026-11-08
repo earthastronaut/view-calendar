@@ -37,6 +37,10 @@ function writeCache(key: string | null, events: CalendarEvent[]) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 async function withRetry<T>(fn: () => Promise<T>, retries: number): Promise<T> {
   let err: unknown
   for (let i = 0; i <= retries; i++) {
@@ -79,6 +83,9 @@ export async function loadEvents(opts: LoadOptions): Promise<LoadResult> {
   } catch (e) {
     const cached = readCache(key)
     if (cached) return { events: cached, source: "cache" }
-    throw apiError instanceof Error && !(e instanceof Error) ? apiError : e
+    // Without a key, iCal was the only attempt. With one, report why the API failed too,
+    // otherwise a bad key looks like it was never used.
+    if (apiError === undefined) throw e
+    throw new Error(`${errorMessage(apiError)} | iCal fallback also failed: ${errorMessage(e)}`, { cause: e })
   }
 }

@@ -41,6 +41,18 @@ export async function fetchWithTimeout(
   }
 }
 
+/** Status line plus Google's own explanation (e.g. a blocked referrer), when the body has one. */
+async function describeApiFailure(res: Response): Promise<string> {
+  const base = `Google Calendar API responded ${res.status}`
+  try {
+    const body = (await res.json()) as { error?: { message?: string } }
+    const detail = body.error?.message
+    return detail ? `${base}: ${detail}` : base
+  } catch {
+    return base
+  }
+}
+
 /** Parse `YYYY-MM-DD` as local midnight in `timeZone` (never as UTC). */
 export function parseDateOnly(value: string, timeZone: string): Date {
   const [y, m, d] = value.split("-").map(Number)
@@ -90,7 +102,7 @@ export async function fetchFromGoogleApi(opts: LoadOptions & { apiKey: string })
     if (pageToken) params.set("pageToken", pageToken)
     const url = `${base}/calendar/v3/calendars/${encodeURIComponent(opts.calendarId)}/events?${params}`
     const res = await fetchWithTimeout(url, fetcher, opts.timeoutMs ?? 8000)
-    if (!res.ok) throw new HttpError(res.status, `Google Calendar API responded ${res.status}`)
+    if (!res.ok) throw new HttpError(res.status, await describeApiFailure(res))
     const data = (await res.json()) as ApiEventList
     for (const item of data.items ?? []) {
       const e = mapApiItem(item, timeZone)
@@ -116,6 +128,6 @@ export async function fetchGoogleEvent(
   )}?key=${encodeURIComponent(opts.apiKey)}`
   const res = await fetchWithTimeout(url, fetcher, opts.timeoutMs ?? 8000)
   if (res.status === 404) return null
-  if (!res.ok) throw new HttpError(res.status, `Google Calendar API responded ${res.status}`)
+  if (!res.ok) throw new HttpError(res.status, await describeApiFailure(res))
   return mapApiItem((await res.json()) as ApiEventItem, opts.timeZone ?? defaultTimeZone())
 }
