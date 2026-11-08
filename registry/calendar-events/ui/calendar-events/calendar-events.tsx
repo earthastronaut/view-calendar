@@ -33,6 +33,8 @@ export interface CalendarEventsProps extends UseCalendarEventsOptions {
   showFilters?: boolean
   /** Replace the default list card. Call `select()` to open the modal. */
   renderEvent?: (event: CalendarEvent, select: () => void) => React.ReactNode
+  /** Replace the plain-text description in the modal, e.g. with a markdown renderer. */
+  renderDescription?: (event: CalendarEvent) => React.ReactNode
   emptyState?: React.ReactNode
   className?: string
 }
@@ -50,6 +52,7 @@ export function CalendarEvents(props: CalendarEventsProps) {
     showLinks = true,
     showFilters = true,
     renderEvent,
+    renderDescription,
     emptyState,
     className,
     ...source
@@ -198,7 +201,13 @@ export function CalendarEvents(props: CalendarEventsProps) {
         <p className="text-xs text-muted-foreground">Showing saved events; couldn't reach the calendar.</p>
       )}
 
-      <EventModal event={selected} timeZone={timeZone} shareUrl={shareUrl} onClose={() => select(null)} />
+      <EventModal
+        event={selected}
+        timeZone={timeZone}
+        shareUrl={shareUrl}
+        onClose={() => select(null)}
+        renderDescription={renderDescription}
+      />
     </div>
   )
 }

@@ -7,8 +7,7 @@
       "name": "calendar-events-core",
       "type": "registry:lib",
       "title": "Calendar Events (headless core)",
-      "description": "Headless Google Calendar events: API + iCal loading, filters, add-to-calendar/maps/share links, sanitized markdown descriptions, and a React hook.",
-      "dependencies": ["marked", "dompurify"],
+      "description": "Headless Google Calendar events: API + iCal loading, filters, add-to-calendar/maps/share links, plain-text descriptions, and a React hook. No runtime dependencies.",
       "files": [
         {
           "path": "registry/calendar-events/lib/calendar-events/types.ts",
@@ -46,9 +45,9 @@
           "target": "lib/calendar-events/links.ts"
         },
         {
-          "path": "registry/calendar-events/lib/calendar-events/markdown.ts",
+          "path": "registry/calendar-events/lib/calendar-events/description.ts",
           "type": "registry:lib",
-          "target": "lib/calendar-events/markdown.ts"
+          "target": "lib/calendar-events/description.ts"
         },
         {
           "path": "registry/calendar-events/lib/calendar-events/index.ts",

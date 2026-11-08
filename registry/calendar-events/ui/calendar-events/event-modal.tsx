@@ -3,20 +3,52 @@ import { CalendarPlus, Check, Download, ExternalLink, MapPin, Share2 } from "luc
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { createMapsUrl, downloadIcs, googleAddToCalendarUrl, shareEvent } from "@/lib/calendar-events/links"
-import { renderEventDescription } from "@/lib/calendar-events/markdown"
+import { normalizeDescription } from "@/lib/calendar-events/description"
 import { formatEventRange } from "@/lib/calendar-events/time"
 import type { CalendarEvent } from "@/lib/calendar-events/types"
+
+/** Only `http(s)` is matched, so the captured text is always safe to use as an `href`. */
+const URL_PATTERN = /(https?:\/\/[^\s<]+[^\s<.,:;"')\]])/g
+
+function linkify(text: string): React.ReactNode[] {
+  return text.split(URL_PATTERN).map((part, i) =>
+    i % 2 === 1 ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">
+        {part}
+      </a>
+    ) : (
+      part
+    ),
+  )
+}
+
+function DescriptionText({ text }: { text: string }) {
+  return (
+    <div className="calendar-event-description space-y-3 text-sm">
+      {text.split(/\n{2,}/).map((paragraph, i) => (
+        <p key={i} className="whitespace-pre-line">
+          {linkify(paragraph)}
+        </p>
+      ))}
+    </div>
+  )
+}
 
 export interface EventModalProps {
   event: CalendarEvent | null
   timeZone: string
   shareUrl: (event: CalendarEvent) => string
   onClose: () => void
+  /**
+   * Replace the plain-text description body — the place to plug in a markdown or rich-text
+   * renderer. `event.description` holds the raw Google payload (pseudo-HTML).
+   */
+  renderDescription?: (event: CalendarEvent) => React.ReactNode
 }
 
-export function EventModal({ event, timeZone, shareUrl, onClose }: EventModalProps) {
+export function EventModal({ event, timeZone, shareUrl, onClose, renderDescription }: EventModalProps) {
   const [shareState, setShareState] = React.useState<"idle" | "copied" | "failed">("idle")
-  const html = React.useMemo(() => (event ? renderEventDescription(event.description) : ""), [event])
+  const description = React.useMemo(() => (event ? normalizeDescription(event.description) : ""), [event])
 
   React.useEffect(() => setShareState("idle"), [event])
 
@@ -45,12 +77,7 @@ export function EventModal({ event, timeZone, shareUrl, onClose }: EventModalPro
               </p>
             )}
 
-            {html && (
-              <div
-                className="calendar-event-description space-y-3 text-sm [&_a]:underline [&_a]:underline-offset-4 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:text-base [&_h2]:font-semibold [&_h3]:font-semibold [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
-                dangerouslySetInnerHTML={{ __html: html }}
-              />
-            )}
+            {renderDescription ? renderDescription(event) : description && <DescriptionText text={description} />}
 
             <div className="flex flex-wrap gap-2 pt-2">
               <Button asChild variant="outline" size="sm">

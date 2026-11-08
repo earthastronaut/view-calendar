@@ -4,7 +4,7 @@ A shadcn-style registry for showing a **public Google Calendar** as a list or mo
 
 Two registry items:
 
-- `calendar-events-core` — headless: loading (Google API → iCal → cache), filters, links, sanitized markdown, `useCalendarEvents` hook. No UI.
+- `calendar-events-core` — headless: loading (Google API → iCal → cache), filters, links, plain-text descriptions, `useCalendarEvents` hook. No UI, no runtime dependencies.
 - `calendar-events` — UI built on shadcn `button`, `dialog`, `input`. Depends on the core.
 
 ## Use
@@ -27,7 +27,22 @@ const { events, status, loadMorePast } = useCalendarEvents({ calendarId, apiKey 
 const upcoming = filterEvents(events, { ...defaultFilters, range: "week" }, { timeZone })
 ```
 
-Props worth knowing: `view`/`onViewChange`, `filters`/`onFiltersChange`, `getShareUrl`, `syncUrl` (opens `?event=<id>`), `renderEvent`, `baseUrl` (proxy the Google API), `icalProxies`.
+Props worth knowing: `view`/`onViewChange`, `filters`/`onFiltersChange`, `getShareUrl`, `syncUrl` (opens `?event=<id>`), `renderEvent`, `renderDescription`, `baseUrl` (proxy the Google API), `icalProxies`.
+
+## Rich descriptions
+
+Descriptions render as plain text: `normalizeDescription` flattens Google's pseudo-HTML (`<br>`, `<p>`, `<html-blob>`) into paragraphs and line breaks, bare `http(s)` URLs become links, and nothing is ever passed to `dangerouslySetInnerHTML`. There is no markdown parser and no sanitizer to keep the core dependency-free.
+
+If you want markdown or rich text, bring your own renderer — `event.description` is the raw Google payload:
+
+```tsx
+<CalendarEvents
+  calendarId={calendarId}
+  renderDescription={(event) => <MyMarkdown source={event.description} />}
+/>
+```
+
+Sanitizing is then your renderer's job, since the raw value contains untrusted HTML.
 
 ## Notes
 
@@ -39,7 +54,14 @@ Props worth knowing: `view`/`onViewChange`, `filters`/`onFiltersChange`, `getSha
 ## Develop
 
 ```
-pnpm test          # vitest (core + component smoke tests)
+pnpm dev            # dev-only playground at http://localhost:5173
+pnpm test           # vitest (core + component smoke tests)
 pnpm typecheck
 pnpm registry:build   # writes public/r/*.json
 ```
+
+`pnpm dev` starts a Vite page (`dev/`) with input fields for calendar id, API
+key, a source toggle (API key or iCal), time zone, default view, and proxy base URL, plus tabs that exercise the
+full component, the list/calendar sub-views, and the headless `useCalendarEvents`
+hook directly. Values are kept in `localStorage` so you don't have to re-enter
+them. It's for local iteration only and isn't part of the published registry.

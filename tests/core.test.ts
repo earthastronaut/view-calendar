@@ -3,7 +3,7 @@ import { parseICal, expandRRule, parseRRule } from "@/lib/calendar-events/ical"
 import { mapApiItem } from "@/lib/calendar-events/google-api"
 import { filterEvents, defaultFilters, uniqueLocations, NO_LOCATION } from "@/lib/calendar-events/filters"
 import { buildIcs, createMapsUrl, googleAddToCalendarUrl, shareUrl } from "@/lib/calendar-events/links"
-import { renderEventDescription } from "@/lib/calendar-events/markdown"
+import { descriptionExcerpt, normalizeDescription } from "@/lib/calendar-events/description"
 import { dayKey, zonedDate } from "@/lib/calendar-events/time"
 import type { CalendarEvent } from "@/lib/calendar-events/types"
 
@@ -114,16 +114,21 @@ describe("links", () => {
   })
 })
 
-describe("markdown", () => {
-  it("renders Google html-ish markdown", () => {
-    const html = renderEventDescription("<html-blob>## Hi<br>**bold** &amp; <a href=\"https://a.test\">link</a></html-blob>")
-    expect(html).toContain("<h2")
-    expect(html).toContain("<strong>bold</strong>")
-    expect(html).toContain('target="_blank"')
+describe("description", () => {
+  it("flattens Google's pseudo-html to text", () => {
+    const text = normalizeDescription('<html-blob><p>Hi<br>there</p><p>&amp; <a href="https://a.test">link</a></p></html-blob>')
+    expect(text).toBe("Hi\nthere\n\n& link")
   })
-  it("strips scripts and handlers", () => {
-    const html = renderEventDescription('hi <script>alert(1)</script><img src=x onerror="alert(1)">')
-    expect(html).not.toContain("<script")
-    expect(html).not.toContain("onerror")
+  it("drops scripts, handlers and leftover tags", () => {
+    const text = normalizeDescription('hi <script>alert(1)</script><img src=x onerror="alert(1)">')
+    expect(text).toBe("hi")
+  })
+  it("decodes entities only after tags are stripped", () => {
+    expect(normalizeDescription("&lt;script&gt;alert(1)&lt;/script&gt;")).toBe("<script>alert(1)</script>")
+    expect(normalizeDescription("caf&#233; &#x26; bar")).toBe("café & bar")
+  })
+  it("collapses an excerpt to one truncated line", () => {
+    expect(descriptionExcerpt("<p>a</p><p>b</p>")).toBe("a b")
+    expect(descriptionExcerpt("abcdef", 4)).toBe("abc…")
   })
 })

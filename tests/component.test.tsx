@@ -26,7 +26,7 @@ const fetcher = (async () =>
   new Response(
     JSON.stringify({
       items: [
-        item("a", "Waltz Night", 2, { location: "Studio A, Eugene OR", description: "## Bring shoes\n**Free** entry" }),
+        item("a", "Waltz Night", 2, { location: "Studio A, Eugene OR", description: "Bring shoes<br>Free entry &mdash; https://signup.test/waltz" }),
         item("b", "Tango Workshop", 5, { location: "Studio B" }),
         item("c", "Old Social", -3),
       ],
@@ -66,13 +66,15 @@ describe("<CalendarEvents />", () => {
     expect(screen.getByText("Tango Workshop")).toBeTruthy()
   })
 
-  it("opens a modal with rendered markdown, maps, add-to-calendar and share", async () => {
+  it("opens a modal with the description, maps, add-to-calendar and share", async () => {
     const user = userEvent.setup()
     setup()
     await user.click(await screen.findByRole("button", { name: /Waltz Night, view details/ }))
     const dialog = await screen.findByRole("dialog")
-    expect(within(dialog).getByText("Bring shoes").tagName).toBe("H2")
-    expect(within(dialog).getByText("Free").tagName).toBe("STRONG")
+    expect(within(dialog).getByText(/Bring shoes Free entry —/)).toBeTruthy()
+    expect(within(dialog).getByRole("link", { name: "https://signup.test/waltz" }).getAttribute("href")).toBe(
+      "https://signup.test/waltz",
+    )
     expect(within(dialog).getByRole("link", { name: "Studio A, Eugene OR" }).getAttribute("href")).toContain("google.com/maps")
     expect(within(dialog).getByRole("link", { name: /Add to Google Calendar/ }).getAttribute("href")).toContain("action=TEMPLATE")
     expect(within(dialog).getByRole("button", { name: /Share/ })).toBeTruthy()
