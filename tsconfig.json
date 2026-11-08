@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@/components/ui/*": [
+        "./dev/ui/*"
+      ],
+      "@/lib/utils": [
+        "./dev/utils.ts"
+      ],
+      "@/*": [
+        "./registry/calendar-events/*"
+      ]
+    }
+  },
+  "include": [
+    "registry",
+    "tests",
+    "dev"
+  ]
+}

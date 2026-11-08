@@ -1,0 +1,121 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "calendar-events",
+  "homepage": "https://example.com",
+  "items": [
+    {
+      "name": "calendar-events-core",
+      "type": "registry:lib",
+      "title": "Calendar Events (headless core)",
+      "description": "Headless Google Calendar events: API + iCal loading, filters, add-to-calendar/maps/share links, sanitized markdown descriptions, and a React hook.",
+      "dependencies": ["marked", "dompurify"],
+      "files": [
+        {
+          "path": "registry/calendar-events/lib/calendar-events/types.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/types.ts"
+        },
+        {
+          "path": "registry/calendar-events/lib/calendar-events/time.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/time.ts"
+        },
+        {
+          "path": "registry/calendar-events/lib/calendar-events/google-api.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/google-api.ts"
+        },
+        {
+          "path": "registry/calendar-events/lib/calendar-events/ical.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/ical.ts"
+        },
+        {
+          "path": "registry/calendar-events/lib/calendar-events/source.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/source.ts"
+        },
+        {
+          "path": "registry/calendar-events/lib/calendar-events/filters.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/filters.ts"
+        },
+        {
+          "path": "registry/calendar-events/lib/calendar-events/links.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/links.ts"
+        },
+        {
+          "path": "registry/calendar-events/lib/calendar-events/markdown.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/markdown.ts"
+        },
+        {
+          "path": "registry/calendar-events/lib/calendar-events/index.ts",
+          "type": "registry:lib",
+          "target": "lib/calendar-events/index.ts"
+        },
+        {
+          "path": "registry/calendar-events/hooks/use-calendar-events.ts",
+          "type": "registry:hook",
+          "target": "hooks/use-calendar-events.ts"
+        }
+      ]
+    },
+    {
+      "name": "calendar-events",
+      "type": "registry:block",
+      "title": "Calendar Events",
+      "description": "List and month-calendar views of a public Google Calendar with filtering, event modal, maps, add-to-calendar and share links.",
+      "dependencies": ["lucide-react"],
+      "registryDependencies": [
+        "calendar-events-core",
+        "button",
+        "dialog",
+        "input"
+      ],
+      "files": [
+        {
+          "path": "registry/calendar-events/ui/calendar-events/calendar-events.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/calendar-events.tsx"
+        },
+        {
+          "path": "registry/calendar-events/ui/calendar-events/calendar-view.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/calendar-view.tsx"
+        },
+        {
+          "path": "registry/calendar-events/ui/calendar-events/list-view.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/list-view.tsx"
+        },
+        {
+          "path": "registry/calendar-events/ui/calendar-events/event-card.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/event-card.tsx"
+        },
+        {
+          "path": "registry/calendar-events/ui/calendar-events/event-modal.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/event-modal.tsx"
+        },
+        {
+          "path": "registry/calendar-events/ui/calendar-events/filters-bar.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/filters-bar.tsx"
+        },
+        {
+          "path": "registry/calendar-events/ui/calendar-events/links-bar.tsx",
+          "type": "registry:component",
+          "target": "components/calendar-events/links-bar.tsx"
+        },
+        {
+          "path": "registry/calendar-events/ui/calendar-events/index.ts",
+          "type": "registry:component",
+          "target": "components/calendar-events/index.ts"
+        }
+      ]
+    }
+  ]
+}
